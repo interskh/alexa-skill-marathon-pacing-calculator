@@ -9,30 +9,12 @@ var Alexa = require('alexa-sdk');
 //Make sure to enclose your value in quotes, like this: var APP_ID = "amzn1.ask.skill.bb4045e6-b3e8-4133-b650-72923c5980f1";
 var APP_ID = undefined;
 
-var SKILL_NAME = "Space Facts";
-var GET_FACT_MESSAGE = "Here's your fact: ";
-var HELP_MESSAGE = "You can say tell me a space fact, or, you can say exit... What can I help you with?";
+var SKILL_NAME = "Marathon Pacing Calculator";
+var HELP_MESSAGE = "You can ask about marathon pace for certain marathon goal. For example, you may ask the pace for 3 hour marathon.. What can I help you with?";
 var HELP_REPROMPT = "What can I help you with?";
+var SORRY_MESSAGE = "Sorry I don't understand. Please provide a valid goal. For example, you may ask the pace for 4 hour marathon.. What can I help you with?";
 var STOP_MESSAGE = "Goodbye!";
-
-//=========================================================================================================================================
-//TODO: Replace this data with your own.  You can find translations of this data at http://github.com/alexa/skill-sample-node-js-fact/data
-//=========================================================================================================================================
-var data = [
-    "A year on Mercury is just 88 days long.",
-    "Despite being farther from the Sun, Venus experiences higher temperatures than Mercury.",
-    "Venus rotates counter-clockwise, possibly because of a collision in the past with an asteroid.",
-    "On Mars, the Sun appears about half the size as it does on Earth.",
-    "Earth is the only planet not named after a god.",
-    "Jupiter has the shortest day of all the planets.",
-    "The Milky Way galaxy will collide with the Andromeda Galaxy in about 5 billion years.",
-    "The Sun contains 99.86% of the mass in the Solar System.",
-    "The Sun is an almost perfect sphere.",
-    "A total solar eclipse can happen once every 1 to 2 years. This makes them a rare event.",
-    "Saturn radiates two and a half times more energy into space than it receives from the sun.",
-    "The temperature inside the Sun can reach 15 million degrees Celsius.",
-    "The Moon is moving approximately 3.8 cm away from our planet every year."
-];
+var RESULT_MESSAGE = "You need to run at "
 
 //=========================================================================================================================================
 //Editing anything below this line might break your skill.  
@@ -44,16 +26,57 @@ exports.handler = function(event, context, callback) {
     alexa.execute();
 };
 
+var iso8601DurationRegex = /(-)?P(?:([\.,\d]+)Y)?(?:([\.,\d]+)M)?(?:([\.,\d]+)W)?(?:([\.,\d]+)D)?T(?:([\.,\d]+)H)?(?:([\.,\d]+)M)?(?:([\.,\d]+)S)?/;
+
+var parseISO8601Duration = function (iso8601Duration) {
+    var matches = iso8601Duration.match(iso8601DurationRegex);
+
+    //sign: matches[1] === undefined ? '+' : '-',
+    //years: matches[2] === undefined ? 0 : matches[2],
+    //months: matches[3] === undefined ? 0 : matches[3],
+    //weeks: matches[4] === undefined ? 0 : matches[4],
+    var days = matches[5] === undefined ? 0 : matches[5];
+    var hours = matches[6] === undefined ? 0 : matches[6];
+    var minutes = matches[7] === undefined ? 0 : matches[7];
+    var seconds = matches[8] === undefined ? 0 : matches[8];
+    return days*24*60*60*60 + hours*60*60 + minutes*60 + seconds;
+};
+
+var milePace = function(dur) {
+  var milePace = dur / 26.2;
+  console.log("milePace: " + milePace);
+  return Math.floor(milePace);
+}
+
+var kmPace = function(dur) {
+  var kmPace = dur / 42.195;
+  console.log("kmPace: " + kmPace);
+  return Math.floor(kmPace);
+}
+
+var paceToStr = function(pace) {
+  var ret = "";
+  if (pace / 60 >= 1) {
+    ret += Math.floor(pace/60) + " minutes ";
+  }
+  if (pace % 60 != 0) {
+    ret += pace%60 + " seconds";
+  }
+  return ret;
+}
+
 var handlers = {
     'LaunchRequest': function () {
-        this.emit('GetNewFactIntent');
+        this.emit('AMAZON.HelpIntent');
     },
-    'GetNewFactIntent': function () {
-        var factArr = data;
-        var factIndex = Math.floor(Math.random() * factArr.length);
-        var randomFact = factArr[factIndex];
-        var speechOutput = GET_FACT_MESSAGE + randomFact;
-        this.emit(':tellWithCard', speechOutput, SKILL_NAME, randomFact)
+    'PaceCalcIntent': function () {
+      var durSlot = this.event.request.intent.slots["dur"];
+      if (durSlot && durSlot.value) {
+        var dur = parseISO8601Duration(durSlot.value);
+        this.emit(':tell', RESULT_MESSAGE + paceToStr(milePace(dur)) + " per mile or " + paceToStr(kmPace(dur)) + " per km");
+      } else {
+        this.emit(':tell', SORRY_MESSAGE);
+      }
     },
     'AMAZON.HelpIntent': function () {
         var speechOutput = HELP_MESSAGE;
